@@ -1,4 +1,14 @@
+import os
 import sys
+
+def open_file(file):
+    with open(file, mode='rb') as file: # b is important -> binary
+        content = file.read()
+    return content
+    
+def get_file_size(file):
+    st = os.stat(file)
+    return st.st_size
 
 def convert_to_big_endian(little_endian):
     return little_endian[6:8] + little_endian[4:6] + little_endian[2:4] + little_endian[0:2]
@@ -61,25 +71,7 @@ def getObjectList(content, pointer):
     pointer += 12
     return objects
 
-def exportVertexCoords(content, pointer, vertex_amount, vertex_type, size, f_write):
-    for i in range(pointer, pointer + 16 * vertex_amount, 16):
-        
-        x_vertex = convert_to_float32(convert_hex_to_binary32(convert_to_big_endian(content[i:i+4].hex()))) / 10
-        y_vertex = convert_to_float32(convert_hex_to_binary32(convert_to_big_endian(content[i+4:i+8].hex()))) / 10
-        z_vertex = convert_to_float32(convert_hex_to_binary32(convert_to_big_endian(content[i+8:i+12].hex()))) / 10
-
-        f_write.write('v ' + str(format(x_vertex,'.5f')) + ' ' + str(format(y_vertex,'.5f')) + ' ' + str(format(z_vertex,'.5f')) + '\n')
-
-def exportTexCoords(content, pointer, vertex_amount, vertex_type, size, f_write):
-    for i in range(pointer, pointer + 16 * vertex_amount, 16):
-        
-        x_vertex = convert_to_float32(convert_hex_to_binary32(convert_to_big_endian(content[i:i+4].hex()))) / 10
-        y_vertex = convert_to_float32(convert_hex_to_binary32(convert_to_big_endian(content[i+4:i+8].hex()))) / 10
-
-        f_write.write('vt ' + str(format(x_vertex,'.5f')) + ' ' + str(format(y_vertex,'.5f')) + '\n')
-        
-
-def exportVertices(content, pointer, vertex_amount, vertex_type, size, f_write):
+def exportVertices(content, pointer, vertex_amount, vertex_type, size):
     for i in range(pointer, pointer + 16 * vertex_amount, 16):
         line_output = ""
         current_line = content[i:i+16].hex()
@@ -112,7 +104,7 @@ def exportTextures(content, pointer, texture_amount):
         texture = str(texture.strip('\x00'.encode()))[2:]
         print('texture', texture)
 
-def exportObjectFormations(content, pointer, objects_to_form, extra_vertex_count, f_write):
+def exportObjectFormations(content, pointer, objects_to_form, extra_vertex_count):
     size_of_sub_object = int(convert_to_big_endian(content[pointer:pointer + 1].hex()), 16)
     sub_object_pointer = pointer + 16
     while size_of_sub_object != 0:
@@ -131,36 +123,29 @@ def exportObjectFormations(content, pointer, objects_to_form, extra_vertex_count
             sub_object_pointer += 16
         #print(object_vertexes)
         while len(object_vertexes) != 3:
-            f_write.write('f ' + str(object_vertexes[0]) + ' ' + str(object_vertexes[1]) + ' ' + str(object_vertexes[2]) + '\n')
+            print('f', object_vertexes[0], object_vertexes[1], object_vertexes[2])
             object_vertexes = object_vertexes[1:]
-        f_write.write('f ' + str(object_vertexes[0]) + ' ' + str(object_vertexes[1]) + ' ' + str(object_vertexes[2]) + '\n')
+        print('f', object_vertexes[0], object_vertexes[1], object_vertexes[2])
         size_of_sub_object = int(convert_to_big_endian(content[sub_object_pointer:sub_object_pointer + 1].hex()), 16)
         sub_object_pointer += 16
 
 
-if len(sys.argv) != 2:
-    print('Usage: python export_script.py filename.p2o/p2s/p2c')
-    sys.exit()
 file = sys.argv[1]
-with open(file, mode='rb') as file: # b is important -> binary
-    content = file.read()
-object_name = sys.argv[1][:-4]
-f_write = open(object_name + '.obj', mode='w')
-f_write.write('mtllib ' + object_name + '\n')
-
-
+print(file)
+file_size = get_file_size(file)
+content = open_file(file)
 objectListEntryPointer = get_objectListEntryPointer(content)
 model_counter = 0
 extra_vertex_count = 0
 while objectListEntryPointer != 0:
     objects = getObjectList(content, objectListEntryPointer)
-    exportVertexCoords(content, objects['ToVertexCoords'], objects['NumberofVertexCoords'], 'v', 3, f_write)
+    exportVertices(content, objects['ToVertexCoords'], objects['NumberofVertexCoords'], 'v', 3)
     #exportVertices(content, objects['ToNormalMappingList'], objects['NumberofNormalMappingEntries'], 'vn', 3)
-    exportTexCoords(content, objects['ToTextureMappingList'], objects['NumberofTextureMappingEntries'], 'vt', 2, f_write)
+    exportVertices(content, objects['ToTextureMappingList'], objects['NumberofTextureMappingEntries'], 'vt', 2)
     #exportColorMaps(content, objects['ToColorMappingList'], objects['NumberofColorMappingEntries'])
     #exportTintMaps(content, objects['ToTintMappingList'], objects['NumberofTintMappingEntries'])
     #exportTextures(content, objects['ToTextureList'], objects['NumberofTextureEntries'])
-    exportObjectFormations(content, objects['ToObjectFormationList'], objects['NumberofObjectsToForm'], extra_vertex_count, f_write)
+    exportObjectFormations(content, objects['ToObjectFormationList'], objects['NumberofObjectsToForm'], extra_vertex_count)
     extra_vertex_count += objects['NumberofVertexCoords']
     model_counter += 1
     pointer = int(convert_to_big_endian(content[4:8].hex()), 16)
