@@ -27,3 +27,5 @@ ps23dformat.wikispaces.com (Archive.org only) for hosting valuable information o
 
 Hopes and dreams:
 People will make cool stuff with the Ico content. Also, full debug symbols for the Ico binary are literaly included on the European version of the disc. They are just waiting to be reverse engineered.
+
+If you would like to help start a community for Ico content, join the Discord here: https://discord.gg/P58MhRC
